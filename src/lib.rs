@@ -66,7 +66,7 @@ impl OpenWilma {
 
         Ok(Self {
             client,
-            base_url: server.to_string(),
+            base_url: url.to_string(),
         })
     }
 
