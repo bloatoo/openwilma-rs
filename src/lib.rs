@@ -20,7 +20,7 @@ impl OpenWilma {
         let builder = reqwest::Client::builder().redirect(Policy::none());
         let client = builder.build()?;
 
-        let url = server.to_owned();
+        let url = fix_url(server);
 
         /*let _wilmas = reqwest::get("https://www.starsoft.fi/wilmat/wilmat.json")
             .await?
@@ -81,8 +81,14 @@ impl OpenWilma {
     }
 }
 
-fn fix_url(_prev: &str) -> String {
-    todo!()
+fn fix_url(prev: &str) -> String {
+    let mut new: String = prev.into();
+
+    if !new.ends_with("/") {
+        new += "/"
+    }
+
+    new
 }
 
 fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HTMLError>
