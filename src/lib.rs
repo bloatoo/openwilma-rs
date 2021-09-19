@@ -1,9 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
-use html_parser::{Dom, Node, Error as HTMLError, Element};
 use std::sync::Arc;
-use scraper::{Html, Selector};
 
 mod profile;
 mod parser;
@@ -71,9 +69,7 @@ impl OpenWilma {
 
         let mut lines = res.split("\n");
         
-        let line = lines.find(|l| l.contains("text-style-link")).unwrap();
-
-        let identity = parse_identity(line);
+        let identity = parser::parse_identity(&mut lines);
 
         url += &identity;
 
@@ -94,7 +90,7 @@ impl OpenWilma {
 
         let name = parser::parse_name(&mut lines);
         let school = parser::parse_school(&mut lines);
-        let formkey = find_prop_and_parse("formkey", &mut lines)?;
+        let formkey = parser::parse_formkey(&mut lines);
 
         return Ok(Profile::new(name, school, formkey));
     }
@@ -108,70 +104,6 @@ fn fix_url(prev: &str) -> String {
     }
 
     new
-}
-
-fn parse_identity(line: &str) -> String {
-    let fragment = Html::parse_fragment(line);
-    let selector = Selector::parse("a").unwrap();
-    let stuff = fragment.select(&selector).next().unwrap();
-    let mut identity = stuff.value().attr("href").unwrap().to_string();
-    identity.remove(0);
-    identity
-}
-
-fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HTMLError>
-    where T: Iterator<Item = &'a str>
-{
-    let line = original.find(|line| line.contains(prop)).unwrap();
-    println!("{}", line);
-    /*let element = Html::parse_fragment(line);
-    let selector = Selector::parse("a").unwrap();
-
-    let elem = element.select(&selector).next().unwrap();
-    let text = elem.text().collect::<Vec<_>>();
-    println!("{}", text.join(" "));*/
-    
-    let element = Dom::parse(line)?;
-
-    match element.children.get(0) {
-        Some(node) => {
-            match node {
-                Node::Element(elem) => {
-                    Ok(parse_attribute(elem, "value"))
-                }
-                _ => panic!("mistaken find_prop_and_parse call")
-            }
-        }
-        None => panic!("mistaken find_prop_and_parse call")
-    }
-
-    /*if let Node::Element(elem) = &Dom::parse(line)?.children[0] {
-        if let Node::Text(text) = &elem.children[0] {
-            return Ok(text.into());
-        }
-    }*/
-}
-
-fn parse_attribute(elem: &Element, attr: &str) -> String
-{
-    match &elem.children.get(0) {
-        Some(node) => {
-            match node {
-                Node::Element(elem) => {
-                    return parse_attribute(elem, attr);
-                }
-                _ => panic!("mistaken parse_attribute call")
-            }
-        }
-
-        None => {
-            return elem.attributes.get(attr)
-                .unwrap()
-                .as_ref()
-                .unwrap()
-                .into()
-        }
-    }
 }
 
 #[cfg(test)]
@@ -190,10 +122,12 @@ mod tests {
 
         let profile = openwilma.profile().await.unwrap();
 
-        let formkey = profile.formkey().clone();
+        dbg!("{}", profile.name());
+        dbg!("{}", profile.school());
+        dbg!("{}", profile.formkey());
 
         assert_eq!(profile.name().is_empty(), false);
         assert_eq!(profile.school().is_empty(), false);
-        assert_eq!(formkey.split(":").count(), 3);
+        assert_eq!(profile.formkey().split(":").count(), 3);
     }
 }
