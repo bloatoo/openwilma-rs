@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
-use html_parser::{Dom, Node, Error as HTMLError};
+use html_parser::{Dom, Node, Error as HTMLError, Element};
 use std::sync::Arc;
 
 mod parseable;
@@ -9,6 +9,11 @@ mod profile;
 
 use parseable::Parseable;
 use profile::Profile;
+
+pub enum ParseType {
+    Attribute,
+    Text,
+}
 
 pub struct OpenWilma {
     base_url: String,
@@ -74,10 +79,11 @@ impl OpenWilma {
 
         let mut iterator = res.split("\n");
 
-        let name = find_prop_and_parse("teacher", &mut iterator)?;
-        let school = find_prop_and_parse("school", &mut iterator)?;
+        let name = find_prop_and_parse("teacher", &mut iterator, &ParseType::Text)?;
+        let school = find_prop_and_parse("school", &mut iterator, &ParseType::Text)?;
+        let formkey = find_prop_and_parse("formkey", &mut iterator, &ParseType::Attribute)?;
 
-        return Ok(Profile::new(name, school));
+        return Ok(Profile::new(name, school, formkey));
     }
 }
 
@@ -91,13 +97,31 @@ fn fix_url(prev: &str) -> String {
     new
 }
 
-fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HTMLError>
+fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseType) -> Result<String, HTMLError>
     where T: Iterator<Item = &'a str>
 {
     let line = original.find(|line| line.contains(prop)).unwrap();
+    dbg!("{}", line);
 
     let element = Dom::parse(line)?;
-    return Ok(check_elem(&element));
+    println!("{:#?}", element);
+
+    match parse_type {
+        ParseType::Attribute => {
+            match element.first_child() {
+                Some(node) => {
+                    match node {
+                        Node::Element(elem) => {
+                            Ok(parse_attribute(elem, "value"))
+                        }
+                        _ => panic!("mistaken find_prop_and_parse call")
+                    }
+                }
+                None => panic!("mistaken find_prop_and_parse call")
+            }
+        }
+        ParseType::Text => Ok(parse_text(&element))
+    }
 
     /*if let Node::Element(elem) = &Dom::parse(line)?.children[0] {
         if let Node::Text(text) = &elem.children[0] {
@@ -106,13 +130,34 @@ fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HT
     }*/
 }
 
-// recursive function to check for HTML content
-fn check_elem<T>(elem: &T) -> String
-    where T: Parseable
+fn parse_attribute(elem: &Element, attr: &str) -> String
 {
     match &elem.first_child() {
+        Some(node) => {
+            match node {
+                Node::Element(elem) => {
+                    return parse_attribute(elem, attr);
+                }
+                _ => panic!("mistaken parse_attribute call")
+            }
+        }
+
+        None => {
+            return elem.attributes.get(attr)
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .into()
+        }
+    }
+}
+// recursive function to check for HTML content
+fn parse_text<T>(elem: &T) -> String
+    where T: Parseable
+{
+    match &elem.first_child_unchecked() {
         Node::Element(elem) => {
-            return check_elem(elem);
+            return parse_text(elem);
         }
 
         Node::Text(text) => {
@@ -123,7 +168,6 @@ fn check_elem<T>(elem: &T) -> String
         Node::Comment(comment) => return comment.into(),
     }
 }
-
 #[cfg(test)]
 mod tests {
     use crate::OpenWilma;
@@ -140,7 +184,10 @@ mod tests {
 
         let profile = openwilma.profile().await.unwrap();
 
+        let formkey = profile.formkey().clone();
+
         assert_eq!(profile.name().is_empty(), false);
         assert_eq!(profile.school().is_empty(), false);
+        assert_eq!(formkey.split(":").count(), 3);
     }
 }

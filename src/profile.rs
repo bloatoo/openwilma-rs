@@ -1,14 +1,20 @@
 pub struct Profile {
     name: String,
     school: String,
+    formkey: String,
 }
 
 impl Profile {
-    pub fn new(name: String, school: String) -> Self {
+    pub fn new(name: String, school: String, formkey: String) -> Self {
         Self {
             name,
-            school
+            school,
+            formkey
         }
+    }
+    
+    pub fn formkey(&self) -> &String {
+        &self.formkey
     }
 
     pub fn name(&self) -> &String {
