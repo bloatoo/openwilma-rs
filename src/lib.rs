@@ -5,11 +5,9 @@ use html_parser::{Dom, Node, Error as HTMLError, Element};
 use std::sync::Arc;
 use scraper::{Html, Selector};
 
-mod parseable;
 mod profile;
 mod parser;
 
-use parseable::Parseable;
 use profile::Profile;
 
 pub enum ParseType {
@@ -94,10 +92,9 @@ impl OpenWilma {
 
         let mut lines = res.split("\n");
 
-        //let name = find_prop_and_parse("class=\"teacher\"", &mut iterator, &ParseType::Text)?;
         let name = parser::parse_name(&mut lines);
         let school = parser::parse_school(&mut lines);
-        let formkey = find_prop_and_parse("formkey", &mut lines, &ParseType::Attribute("value".into()))?;
+        let formkey = find_prop_and_parse("formkey", &mut lines)?;
 
         return Ok(Profile::new(name, school, formkey));
     }
@@ -122,7 +119,7 @@ fn parse_identity(line: &str) -> String {
     identity
 }
 
-fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseType) -> Result<String, HTMLError>
+fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HTMLError>
     where T: Iterator<Item = &'a str>
 {
     let line = original.find(|line| line.contains(prop)).unwrap();
@@ -136,21 +133,16 @@ fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseTy
     
     let element = Dom::parse(line)?;
 
-    match parse_type {
-        ParseType::Attribute(attr) => {
-            match element.first_child() {
-                Some(node) => {
-                    match node {
-                        Node::Element(elem) => {
-                            Ok(parse_attribute(elem, attr))
-                        }
-                        _ => panic!("mistaken find_prop_and_parse call")
-                    }
+    match element.children.get(0) {
+        Some(node) => {
+            match node {
+                Node::Element(elem) => {
+                    Ok(parse_attribute(elem, "value"))
                 }
-                None => panic!("mistaken find_prop_and_parse call")
+                _ => panic!("mistaken find_prop_and_parse call")
             }
         }
-        ParseType::Text => Ok(parse_text(&element))
+        None => panic!("mistaken find_prop_and_parse call")
     }
 
     /*if let Node::Element(elem) = &Dom::parse(line)?.children[0] {
@@ -162,7 +154,7 @@ fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseTy
 
 fn parse_attribute(elem: &Element, attr: &str) -> String
 {
-    match &elem.first_child() {
+    match &elem.children.get(0) {
         Some(node) => {
             match node {
                 Node::Element(elem) => {
@@ -181,24 +173,7 @@ fn parse_attribute(elem: &Element, attr: &str) -> String
         }
     }
 }
-// recursive function to check for HTML content
-fn parse_text<T>(elem: &T) -> String
-    where T: Parseable
-{
-    match &elem.first_child_unchecked() {
-        Node::Element(elem) => {
-            return parse_text(elem);
-        }
 
-        Node::Text(text) => {
-            println!("{}", text);
-            return text.into();
-        }
-
-        // TODO: find a better solution for comments
-        Node::Comment(comment) => return comment.into(),
-    }
-}
 #[cfg(test)]
 mod tests {
     use crate::OpenWilma;
