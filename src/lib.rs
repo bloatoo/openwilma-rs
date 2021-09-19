@@ -101,10 +101,7 @@ fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseTy
     where T: Iterator<Item = &'a str>
 {
     let line = original.find(|line| line.contains(prop)).unwrap();
-    dbg!("{}", line);
-
     let element = Dom::parse(line)?;
-    println!("{:#?}", element);
 
     match parse_type {
         ParseType::Attribute => {
