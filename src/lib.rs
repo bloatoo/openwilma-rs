@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
 use html_parser::{Dom, Node, Error as HTMLError, Element};
 use std::sync::Arc;
+use scraper::{Html, Selector};
 
 mod parseable;
 mod profile;
@@ -11,7 +12,7 @@ use parseable::Parseable;
 use profile::Profile;
 
 pub enum ParseType {
-    Attribute,
+    Attribute(String),
     Text,
 }
 
@@ -25,7 +26,7 @@ impl OpenWilma {
         let builder = reqwest::Client::builder().redirect(Policy::none());
         let client = builder.build()?;
 
-        let url = fix_url(server);
+        let mut url = fix_url(server);
 
         /*let _wilmas = reqwest::get("https://www.starsoft.fi/wilmat/wilmat.json")
             .await?
@@ -64,6 +65,20 @@ impl OpenWilma {
         let builder = reqwest::Client::builder();
         let client = builder.cookie_provider(jar).build()?;
 
+        let res = client.get(url.clone())
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let mut lines = res.split("\n");
+        
+        let line = lines.find(|l| l.contains("text-style-link")).unwrap();
+
+        let identity = parse_identity(line);
+
+        url += &identity;
+
         Ok(Self {
             client,
             base_url: url.to_string(),
@@ -79,9 +94,9 @@ impl OpenWilma {
 
         let mut iterator = res.split("\n");
 
-        let name = find_prop_and_parse("teacher", &mut iterator, &ParseType::Text)?;
-        let school = find_prop_and_parse("school", &mut iterator, &ParseType::Text)?;
-        let formkey = find_prop_and_parse("formkey", &mut iterator, &ParseType::Attribute)?;
+        let name = find_prop_and_parse("class=\"teacher\"", &mut iterator, &ParseType::Text)?;
+        let school = find_prop_and_parse("class=\"school\"", &mut iterator, &ParseType::Text)?;
+        let formkey = find_prop_and_parse("formkey", &mut iterator, &ParseType::Attribute("value".into()))?;
 
         return Ok(Profile::new(name, school, formkey));
     }
@@ -97,19 +112,36 @@ fn fix_url(prev: &str) -> String {
     new
 }
 
+fn parse_identity(line: &str) -> String {
+    let fragment = Html::parse_fragment(line);
+    let selector = Selector::parse("a").unwrap();
+    let stuff = fragment.select(&selector).next().unwrap();
+    let mut identity = stuff.value().attr("href").unwrap().to_string();
+    identity.remove(0);
+    identity
+}   
+
 fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseType) -> Result<String, HTMLError>
     where T: Iterator<Item = &'a str>
 {
     let line = original.find(|line| line.contains(prop)).unwrap();
+    println!("{}", line);
+    /*let element = Html::parse_fragment(line);
+    let selector = Selector::parse("a").unwrap();
+
+    let elem = element.select(&selector).next().unwrap();
+    let text = elem.text().collect::<Vec<_>>();
+    println!("{}", text.join(" "));*/
+    
     let element = Dom::parse(line)?;
 
     match parse_type {
-        ParseType::Attribute => {
+        ParseType::Attribute(attr) => {
             match element.first_child() {
                 Some(node) => {
                     match node {
                         Node::Element(elem) => {
-                            Ok(parse_attribute(elem, "value"))
+                            Ok(parse_attribute(elem, attr))
                         }
                         _ => panic!("mistaken find_prop_and_parse call")
                     }
@@ -158,6 +190,7 @@ fn parse_text<T>(elem: &T) -> String
         }
 
         Node::Text(text) => {
+            println!("{}", text);
             return text.into();
         }
 
