@@ -7,6 +7,7 @@ use scraper::{Html, Selector};
 
 mod parseable;
 mod profile;
+mod parser;
 
 use parseable::Parseable;
 use profile::Profile;
@@ -57,7 +58,6 @@ impl OpenWilma {
         let cookies: Vec<Cookie> = res.cookies().collect();
         let cookie = cookies.iter().find(|c| c.name() == "Wilma2SID").unwrap();
 
-        //let sid = cookie.value().to_string();
         let jar = Arc::new(Jar::default());
         let cookie_url = url.clone().parse::<Url>()?;
         jar.add_cookie_str(&format!("Wilma2SID={}", cookie.value()), &cookie_url);
@@ -92,11 +92,12 @@ impl OpenWilma {
             .text()
             .await?;
 
-        let mut iterator = res.split("\n");
+        let mut lines = res.split("\n");
 
-        let name = find_prop_and_parse("class=\"teacher\"", &mut iterator, &ParseType::Text)?;
-        let school = find_prop_and_parse("class=\"school\"", &mut iterator, &ParseType::Text)?;
-        let formkey = find_prop_and_parse("formkey", &mut iterator, &ParseType::Attribute("value".into()))?;
+        //let name = find_prop_and_parse("class=\"teacher\"", &mut iterator, &ParseType::Text)?;
+        let name = parser::parse_name(&mut lines);
+        let school = parser::parse_school(&mut lines);
+        let formkey = find_prop_and_parse("formkey", &mut lines, &ParseType::Attribute("value".into()))?;
 
         return Ok(Profile::new(name, school, formkey));
     }
@@ -119,7 +120,7 @@ fn parse_identity(line: &str) -> String {
     let mut identity = stuff.value().attr("href").unwrap().to_string();
     identity.remove(0);
     identity
-}   
+}
 
 fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T, parse_type: &ParseType) -> Result<String, HTMLError>
     where T: Iterator<Item = &'a str>
