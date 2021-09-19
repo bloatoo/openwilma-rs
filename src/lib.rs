@@ -1,12 +1,50 @@
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
-use html_parser::{Dom, Node};
+use html_parser::{Dom, Node, Error as HTMLError, Element};
 use std::sync::Arc;
 
 pub struct OpenWilma {
     base_url: String,
     client: Client,
+}
+
+pub struct Profile {
+    name: String,
+    school: String,
+}
+
+impl Profile {
+    pub fn new(name: String, school: String) -> Self {
+        Self {
+            name,
+            school
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn school(&self) -> &String {
+        &self.school
+    }
+}
+
+trait Parseable {
+    fn first_child(&self) -> &Node;
+}
+
+impl Parseable for Element {
+    fn first_child(&self) -> &Node {
+        return &self.children[0];
+    }
+}
+
+impl Parseable for Dom {
+    fn first_child(&self) -> &Node {
+        return &self.children[0];
+    }
 }
 
 impl OpenWilma {
@@ -59,29 +97,57 @@ impl OpenWilma {
         })
     }
 
-    pub async fn name(&self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn profile(&self) -> Result<Profile, Box<dyn std::error::Error>> {
         let res = self.client.get(self.base_url.clone())
             .send()
             .await?
             .text()
             .await?;
 
-        for line in res.split("\n") {
-            if line.contains("teacher") {
-                if let Node::Element(elem) = &Dom::parse(line)?.children[0] {
-                    if let Node::Text(name) = &elem.children[0] {
-                        return Ok(Some(name.into()));
-                    }
-                }
-            }
-        }
+        let mut iterator = res.split("\n");
 
-        return Ok(None);
+        let name = find_prop_and_parse("teacher", &mut iterator)?;
+        let school = find_prop_and_parse("school", &mut iterator)?;
+
+        return Ok(Profile::new(name, school));
     }
 }
 
-fn fix_url(prev: &str) -> String {
+fn fix_url(_prev: &str) -> String {
     todo!()
+}
+
+fn find_prop_and_parse<'a, T>(prop: &str, original: &mut T) -> Result<String, HTMLError>
+    where T: Iterator<Item = &'a str>
+{
+    let line = original.find(|line| line.contains(prop)).unwrap();
+
+    let element = Dom::parse(line)?;
+    return Ok(check_elem(&element));
+
+    /*if let Node::Element(elem) = &Dom::parse(line)?.children[0] {
+        if let Node::Text(text) = &elem.children[0] {
+            return Ok(text.into());
+        }
+    }*/
+}
+
+// recursive function to check for HTML content
+fn check_elem<T>(elem: &T) -> String
+    where T: Parseable
+{
+    match &elem.first_child() {
+        Node::Element(elem) => {
+            return check_elem(elem);
+        }
+
+        Node::Text(text) => {
+            return text.into();
+        }
+
+        // TODO: find a better solution for comments
+        Node::Comment(comment) => return comment.into(),
+    }
 }
 
 #[cfg(test)]
@@ -94,12 +160,13 @@ mod tests {
 
     #[tokio::test]
     async fn login() {
-        let openwilma = OpenWilma::connect("email", "password", "server")
+        let openwilma = OpenWilma::connect("username", "password", "server")
             .await
             .unwrap();
 
-        let name = openwilma.name().await.unwrap();
+        let profile = openwilma.profile().await.unwrap();
 
-        assert_eq!(name.unwrap().is_empty(), false);
+        assert_eq!(profile.name().is_empty(), false);
+        assert_eq!(profile.school().is_empty(), false);
     }
 }
