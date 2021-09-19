@@ -1,50 +1,18 @@
 use serde_json::Value;
 use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
-use html_parser::{Dom, Node, Error as HTMLError, Element};
+use html_parser::{Dom, Node, Error as HTMLError};
 use std::sync::Arc;
+
+mod parseable;
+mod profile;
+
+use parseable::Parseable;
+use profile::Profile;
 
 pub struct OpenWilma {
     base_url: String,
     client: Client,
-}
-
-pub struct Profile {
-    name: String,
-    school: String,
-}
-
-impl Profile {
-    pub fn new(name: String, school: String) -> Self {
-        Self {
-            name,
-            school
-        }
-    }
-
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
-    pub fn school(&self) -> &String {
-        &self.school
-    }
-}
-
-trait Parseable {
-    fn first_child(&self) -> &Node;
-}
-
-impl Parseable for Element {
-    fn first_child(&self) -> &Node {
-        return &self.children[0];
-    }
-}
-
-impl Parseable for Dom {
-    fn first_child(&self) -> &Node {
-        return &self.children[0];
-    }
 }
 
 impl OpenWilma {
