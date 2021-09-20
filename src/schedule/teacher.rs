@@ -7,3 +7,17 @@ pub struct Teacher {
     caption: String,
     long_caption: String,
 }
+
+impl Teacher {
+    pub fn id(&self) -> &u32 {
+        &self.id
+    }
+
+    pub fn caption(&self) -> &String {
+        &self.caption
+    }
+
+    pub fn long_caption(&self) -> &String {
+        &self.long_caption
+    }
+}

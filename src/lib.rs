@@ -169,8 +169,19 @@ mod tests {
         let reservations = schedule.reservations();
 
         for reserv in reservations {
-            //println!("reservation: {} ({}-{})", reserv.caption(), reserv.start(), reserv.end());
-            println!("{:#?}", reserv);
+            let group = &reserv.groups()[0];
+            let teacher = &group.teachers()[0];
+
+            println!(
+                "tunti: {} ({}-{}) | {}, {}",
+                group.caption(),
+                reserv.start(),
+                reserv.end(),
+                teacher.long_caption(),
+                group.class()
+            );
+
+            //println!("{:#?}", reserv);
         }
 
         assert!(!reservations.is_empty());

@@ -7,6 +7,7 @@ use super::Group;
 pub struct Reservation {
     start: String,
     end: String,
+    day: u8,
     groups: Vec<Group>
 }
 
@@ -19,6 +20,10 @@ impl Reservation {
     /*pub fn caption(&self) -> &String {
         &self.groups[0].caption()
     }*/
+
+    pub fn groups(&self) -> &Vec<Group> {
+        &self.groups
+    }
 
     pub fn start(&self) -> &String {
         &self.start
