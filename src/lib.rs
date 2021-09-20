@@ -4,15 +4,11 @@ use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
 use std::sync::Arc;
 
 mod profile;
+mod schedule;
 mod parser;
 
 use profile::Profile;
-
-#[derive(Debug, Clone)]
-pub enum ParseType {
-    Attribute(String),
-    Text,
-}
+use schedule::Schedule;
 
 pub struct OpenWilma {
     base_url: String,
@@ -59,7 +55,7 @@ impl OpenWilma {
         let cookie_url = url.clone().parse::<Url>()?;
         jar.add_cookie_str(&format!("Wilma2SID={}", cookie.value()), &cookie_url);
 
-        let builder = reqwest::Client::builder();
+        let builder = reqwest::Client::builder().redirect(Policy::none());
         let client = builder.cookie_provider(jar).build()?;
 
         let res = client.get(url.clone())
@@ -67,8 +63,6 @@ impl OpenWilma {
             .await?
             .text()
             .await?;
-
-        println!("{}", res);
 
         let mut lines = res.split("\n");
         
@@ -100,7 +94,7 @@ impl OpenWilma {
         Ok(profile)
     }
 
-    pub async fn schedule(&self) -> Result<String, Box<dyn std::error::Error>> { //TODO: schedule struct
+    pub async fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
         let profile = self.profile().await?;
 
         let url = &format!("{}schedule/export/students/{}", self.base_url.clone(), profile.user_id());
@@ -111,9 +105,7 @@ impl OpenWilma {
             .text()
             .await?;
 
-        let json: Value = serde_json::from_str(&res)?;
-        let result = serde_json::to_string_pretty(&json)?;
-
+        let result = Schedule::from_json(&res).unwrap();
         Ok(result)
     }
 }
@@ -173,7 +165,13 @@ mod tests {
             .unwrap();
 
         let schedule = openwilma.schedule().await.unwrap();
+        
+        let reservations = schedule.reservations();
 
-        assert!(!schedule.is_empty());
+        for reserv in reservations {
+            println!("reservation: {} ({}-{})", reserv.caption(), reserv.start(), reserv.end());
+        }
+
+        assert!(!reservations.is_empty());
     }
 }
