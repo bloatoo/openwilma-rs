@@ -8,6 +8,7 @@ mod parser;
 
 use profile::Profile;
 
+#[derive(Debug, Clone)]
 pub enum ParseType {
     Attribute(String),
     Text,
@@ -67,6 +68,8 @@ impl OpenWilma {
             .text()
             .await?;
 
+        println!("{}", res);
+
         let mut lines = res.split("\n");
         
         let identity = parser::parse_identity(&mut lines);
@@ -92,7 +95,26 @@ impl OpenWilma {
         let school = parser::parse_school(&mut lines);
         let formkey = parser::parse_formkey(&mut lines);
 
-        return Ok(Profile::new(name, school, formkey));
+        let profile = Profile::new(name, school, formkey);
+
+        Ok(profile)
+    }
+
+    pub async fn schedule(&self) -> Result<String, Box<dyn std::error::Error>> { //TODO: schedule struct
+        let profile = self.profile().await?;
+
+        let url = &format!("{}schedule/export/students/{}", self.base_url.clone(), profile.user_id());
+        
+        let res = self.client.get(url)
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let json: Value = serde_json::from_str(&res)?;
+        let result = serde_json::to_string_pretty(&json)?;
+
+        Ok(result)
     }
 }
 
@@ -109,6 +131,11 @@ fn fix_url(prev: &str) -> String {
 #[cfg(test)]
 mod tests {
     use crate::OpenWilma;
+
+    pub const UNIT_TEST_USERNAME: &str = "";
+    pub const UNIT_TEST_PASSWORD: &str = "";
+    pub const UNIT_TEST_SERVER: &str = "";
+
     #[test]
     fn it_works() {
         assert_eq!(2 + 2, 4);
@@ -116,7 +143,11 @@ mod tests {
 
     #[tokio::test]
     async fn login() {
-        let openwilma = OpenWilma::connect("username", "password", "server")
+        let openwilma = OpenWilma::connect(
+            UNIT_TEST_USERNAME,
+            UNIT_TEST_PASSWORD,
+            UNIT_TEST_SERVER
+        )
             .await
             .unwrap();
 
@@ -126,8 +157,23 @@ mod tests {
         dbg!("{}", profile.school());
         dbg!("{}", profile.formkey());
 
-        assert_eq!(profile.name().is_empty(), false);
-        assert_eq!(profile.school().is_empty(), false);
+        assert!(!profile.name().is_empty());
+        assert!(!profile.school().is_empty());
         assert_eq!(profile.formkey().split(":").count(), 3);
+    }
+
+    #[tokio::test]
+    async fn schedule() {
+        let openwilma = OpenWilma::connect(
+            UNIT_TEST_USERNAME, 
+            UNIT_TEST_PASSWORD, 
+            UNIT_TEST_SERVER
+        )
+            .await
+            .unwrap();
+
+        let schedule = openwilma.schedule().await.unwrap();
+
+        assert!(!schedule.is_empty());
     }
 }

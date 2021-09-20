@@ -1,8 +1,10 @@
 # TODO
 
 - [x] cleanup lol
-- [ ] Proper error handling (or proper HTML parsing in other words)
-- [ ] User profile
+- [x] Proper error handling (or proper HTML parsing in other words)
+- [x] User profile
+
+- [ ] Schedule Struct
 - [ ] Handling roles
 - [ ] Schedule
 - [ ] Recipients
