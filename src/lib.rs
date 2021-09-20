@@ -169,7 +169,7 @@ mod tests {
         let reservations = schedule.reservations();
 
         for reserv in reservations {
-            println!("reservation: {} ({}-{})", reserv.caption(), reserv.start(), reserv.end());
+            //println!("reservation: {} ({}-{})", reserv.caption(), reserv.start(), reserv.end());
             println!("{:#?}", reserv);
         }
 
