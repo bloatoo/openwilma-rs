@@ -5,6 +5,7 @@
 - [x] User profile
 - [x] JSON parsing with serde's Serialize and Deserialize traits
 
+- [ ] News (parse from panel-body)
 - [ ] Schedule
 - [ ] Handling roles
 - [ ] Recipients

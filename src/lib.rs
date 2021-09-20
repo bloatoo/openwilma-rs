@@ -97,7 +97,11 @@ impl OpenWilma {
     pub async fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
         let profile = self.profile().await?;
 
-        let url = &format!("{}schedule/export/students/{}", self.base_url.clone(), profile.user_id());
+        let url = &format!(
+            "{}schedule/export/students/{}",
+            self.base_url.clone(),
+            profile.user_id()
+        );
         
         let res = self.client.get(url)
             .send()
