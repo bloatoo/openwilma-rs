@@ -1,23 +1,40 @@
-use serde_json::{Value, from_str};
+use serde_json::{Value, from_str, from_value};
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Reservation {
-    caption: String,
     start: String,
     end: String,
+    groups: Vec<Group>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Group {
+    class: String,
+    short_caption: String,
+    caption: String,
+    full_caption: String,
+    teachers: Vec<Teacher>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Teacher {
+    id: u32,
+    caption: String,
+    long_caption: String,
 }
 
 impl Reservation {
-    pub fn new(caption: String, start: String, end: String) -> Self {
-        Self {
-            caption,
-            start,
-            end,
-        }
+    pub fn from_json(json: &Value) -> Result<Self, Box<dyn std::error::Error>> {
+        let result = from_value::<Self>(json.clone())?;
+        Ok(result)
     }
 
     pub fn caption(&self) -> &String {
-        &self.caption
+        &self.groups[0].caption
     }
 
     pub fn start(&self) -> &String {
@@ -46,33 +63,7 @@ impl Schedule {
         let mut reservations = vec![];
 
         for reserv in reservations_json {
-            let group = &reserv.get("Groups")
-                .unwrap()
-                .as_array()
-                .unwrap()
-                [0];
-
-            let caption = group.get("Caption")
-                .unwrap()
-                .as_str()
-                .unwrap();
-
-            let start = reserv.get("Start")
-                .unwrap()
-                .as_str()
-                .unwrap();
-
-            let end = reserv.get("End")
-                .unwrap()
-                .as_str()
-                .unwrap();
-            
-            let reservation = Reservation::new(
-                caption.into(),
-                start.into(),
-                end.into()
-            );
-
+            let reservation = Reservation::from_json(reserv)?;
             reservations.push(reservation);
         }
 

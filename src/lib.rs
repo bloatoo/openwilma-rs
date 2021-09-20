@@ -170,6 +170,7 @@ mod tests {
 
         for reserv in reservations {
             println!("reservation: {} ({}-{})", reserv.caption(), reserv.start(), reserv.end());
+            println!("{:#?}", reserv);
         }
 
         assert!(!reservations.is_empty());
