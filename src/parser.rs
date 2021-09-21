@@ -42,7 +42,6 @@ pub fn filter_fragment<'a, I>(
                 }
 
                 result.push(line);
-                result.push(line);
             }
             false => continue,
         }
@@ -50,7 +49,6 @@ pub fn filter_fragment<'a, I>(
 
     result.retain(|line| !line.is_empty());
     Some(result)
-    Some(result.join("\n"))
 }
 
 pub fn parse_name<'a, I>(document: &mut I) -> String
