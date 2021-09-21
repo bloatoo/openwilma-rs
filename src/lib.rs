@@ -3,12 +3,15 @@ use std::collections::HashMap;
 use reqwest::{cookie::Jar, Url, cookie::Cookie, redirect::Policy, Client};
 use std::sync::Arc;
 
-mod profile;
-mod schedule;
+pub mod profile;
+pub mod schedule;
+pub mod news_article;
+
 mod parser;
 
 use profile::Profile;
 use schedule::Schedule;
+use news_article::NewsArticle;
 
 pub struct OpenWilma {
     base_url: String,
@@ -92,6 +95,24 @@ impl OpenWilma {
         let profile = Profile::new(name, school, formkey);
 
         Ok(profile)
+    }
+
+    pub async fn news(&self) -> Result<Vec<NewsArticle>, Box<dyn std::error::Error>> {
+        let res = self.client.get(self.base_url.clone() + "news")
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let lines = res.split("\n");
+
+        parser::parse_news_list(lines);
+
+        Ok(vec![])
+    }
+
+    pub fn http_client(&self) -> &Client {
+        &self.client
     }
 
     pub async fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
